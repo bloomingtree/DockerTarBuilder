@@ -15,12 +15,20 @@ on:
 jobs:
   pull-and-push:
     name: Pull and Push Docker Image
-    runs-on: ubuntu-latest
-    environment: docker-tar-builder
+    runs-on: ubuntu-22.04
+    environment: x86
     outputs:
       image_tag: ${{ steps.meta.outputs.image_tag }}
       tar_filename: ${{ steps.meta.outputs.tar_filename }}
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Clean up Docker to free space
+        run: |
+          docker system prune -a -f
+          docker volume prune -f
+
       - name: Prepare metadata
         id: meta
         run: |
@@ -44,46 +52,40 @@ jobs:
           echo "目标镜像: $IMAGE_TAG"
           echo "输出文件: $TAR_FILENAME"
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ vars.DOCKER_REGISTRY }}
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-
       - name: Pull Docker image
         run: |
           echo "正在拉取镜像: ${{ inputs.image_name }}"
-          docker pull ${{ inputs.image_name }}
+          docker pull ${{ inputs.image_name }} --platform "linux/amd64"
 
       - name: Tag and push to Registry
         run: |
+          echo "正在登录 Docker Registry..."
+          echo "${{ secrets.DOCKER_PASSWORD }}" | docker login ${{ vars.DOCKER_REGISTRY }} -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+          
           docker tag ${{ inputs.image_name }} ${{ steps.meta.outputs.image_tag }}
           echo "正在推送镜像到: ${{ steps.meta.outputs.image_tag }}"
           docker push ${{ steps.meta.outputs.image_tag }}
 
   export-on-server:
     name: Export Image on Server
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs: pull-and-push
-    environment: docker-tar-builder
+    environment: x86
     steps:
       - name: Pull and export on remote server
         uses: appleboy/ssh-action@master
         with:
-          host: ${{ secrets.REMOTE_HOST }}
-          username: ${{ secrets.REMOTE_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: ${{ secrets.SERVER_PORT || 22 }}
           script: |
             set -e
             
             # 配置
             IMAGE_TAG="${{ needs.pull-and-push.outputs.image_tag }}"
             TAR_FILENAME="${{ needs.pull-and-push.outputs.tar_filename }}"
-            OUTPUT_DIR="${{ vars.OUTPUT_DIR }}"
+            OUTPUT_DIR="${{ secrets.SERVER_PATH }}"
             
             # 默认输出目录
             if [ -z "$OUTPUT_DIR" ]; then
