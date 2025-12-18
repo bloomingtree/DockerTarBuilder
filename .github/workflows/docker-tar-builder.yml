@@ -75,22 +75,16 @@ jobs:
       - name: Pull and export on remote server
         uses: appleboy/ssh-action@master
         with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          port: ${{ secrets.SERVER_PORT || 22 }}
+          host: ${{ secrets.REMOTE_HOST }}
+          username: ${{ secrets.REMOTE_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             set -e
             
             # 配置
             IMAGE_TAG="${{ needs.pull-and-push.outputs.image_tag }}"
             TAR_FILENAME="${{ needs.pull-and-push.outputs.tar_filename }}"
-            OUTPUT_DIR="${{ secrets.SERVER_PATH }}"
-            
-            # 默认输出目录
-            if [ -z "$OUTPUT_DIR" ]; then
-              OUTPUT_DIR="/tmp/docker-images"
-            fi
+            OUTPUT_DIR="${{ vars.OUTPUT_DIR }}"
             
             echo "=========================================="
             echo "镜像: $IMAGE_TAG"
