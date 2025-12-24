@@ -11,6 +11,11 @@ on:
         description: '输出文件名 (不含扩展名，默认使用镜像名)'
         required: false
         type: string
+      export_on_server:
+        description: '是否在服务器上导出镜像为压缩包'
+        required: false
+        type: boolean
+        default: true
 
 jobs:
   pull-and-push:
@@ -71,6 +76,7 @@ jobs:
     runs-on: ubuntu-22.04
     needs: pull-and-push
     environment: x86
+    if: ${{ inputs.export_on_server == true }}
     steps:
       - name: Pull and export on remote server
         uses: appleboy/ssh-action@master
